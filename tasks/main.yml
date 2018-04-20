@@ -1,0 +1,37 @@
+---
+# tasks file for tigervnc-server
+- name: Install TigerVNC-server package
+  package:
+    name: tigervnc-server
+    state: present
+
+- name: copy vnc server config
+  template:
+    src: templates/vncservers.j2
+    dest: /etc/sysconfig/vncservers
+    owner: root
+    group: root
+    mode: 0644
+
+- name: prepare a file .vnc/passwd
+  file:
+    path: ".vnc/passwd"
+    owner: "{{ VNC_USER }}"
+    group: "{{ VNC_USER }}"
+    mode: 0600
+    state: touch
+
+- name: set password for vnc user
+  shell: "echo -n {{ VNC_PASSWORD }} | vncpasswd -f > ~{{ VNC_USER }}/.vnc/passwd"
+  become: yes
+  become_user: "{{ VNC_USER }}"
+
+- name: enable vncserver service
+  service:
+    name: vncserver
+    enabled: yes
+
+- name: restart vncserver service
+  service:
+    name: vncserver
+    state: restarted
