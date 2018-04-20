@@ -1,5 +1,5 @@
-Role Name
-=========
+TigerVNC-Server
+===============
 
 This plugin helps with installing and configuring of `TigerVNC` server.
 Actually it can install the package on a linux with an old way to start/configure system service (ie. not using systemd)
