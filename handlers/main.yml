@@ -1,2 +1,8 @@
----
 # handlers file for tigervnc-server
+---
+- name: restart vncserver
+  service:
+    name: vncserver
+    state: restarted
+  tags:
+    - tigervnc-server
