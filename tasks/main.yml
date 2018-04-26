@@ -4,6 +4,9 @@
   package:
     name: tigervnc-server
     state: present
+  notify: restart vncserver
+  tags:
+    - tigervnc-server
 
 - name: copy vnc server config
   template:
@@ -12,6 +15,9 @@
     owner: root
     group: root
     mode: 0644
+  notify: restart vncserver
+  tags:
+    - tigervnc-server
 
 - name: prepare a file .vnc/passwd
   file:
@@ -20,18 +26,36 @@
     group: "{{ VNC_USER }}"
     mode: 0600
     state: touch
+  notify: restart vncserver
+  tags:
+    - tigervnc-server
+
+- name: check for vncpassword
+  stat:
+    path: "~{{ VNC_USER }}/.vnc/passwd"
+  register: vnc_passwd_file
+  tags:
+    - tigervnc-server
+
+- name: determine if vnc password changes
+  shell: "[[ $(echo -n {{ VNC_PASSWORD }} | vncpasswd -f | md5sum | cut -d ' ' -f1) == $(md5sum ~{{ VNC_USER }}/.vnc/passwd | cut -d ' ' -f1)]]"
+  register: vncpasswd_changed
+  when: vnc_passwd_file.exists == False
+  tags:
+    - tigervnc-server
 
 - name: set password for vnc user
   shell: "echo -n {{ VNC_PASSWORD }} | vncpasswd -f > ~{{ VNC_USER }}/.vnc/passwd"
   become: yes
   become_user: "{{ VNC_USER }}"
+  when: (vnc_passwd_file.exists == False) or (vncpasswd_changed.rc == 1)
+  notify: restart vncserver
+  tags:
+    - tigervnc-server
 
 - name: enable vncserver service
   service:
     name: vncserver
     enabled: yes
-
-- name: restart vncserver service
-  service:
-    name: vncserver
-    state: restarted
+  tags:
+    - tigervnc-server
