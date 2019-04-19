@@ -1,4 +1,3 @@
----
 # tasks file for tigervnc-server
 - name: Install TigerVNC-server package
   package:
@@ -21,7 +20,7 @@
 
 - name: prepare a file .vnc/passwd
   file:
-    path: ".vnc/passwd"
+    path: "~{{ VNC_USER }}/.vnc/passwd"
     owner: "{{ VNC_USER }}"
     group: "{{ VNC_USER }}"
     mode: 0600
@@ -30,32 +29,17 @@
   tags:
     - tigervnc-server
 
-- name: check for vncpassword
-  stat:
-    path: "~{{ VNC_USER }}/.vnc/passwd"
-  register: vnc_passwd_file
-  tags:
-    - tigervnc-server
-
-- name: determine if vnc password changes
-  shell: "[[ $(echo -n {{ VNC_PASSWORD }} | vncpasswd -f | md5sum | cut -d ' ' -f1) == $(md5sum ~{{ VNC_USER }}/.vnc/passwd | cut -d ' ' -f1)]]"
-  register: vncpasswd_changed
-  when: vnc_passwd_file.exists == False
-  tags:
-    - tigervnc-server
-
 - name: set password for vnc user
-  shell: "echo -n {{ VNC_PASSWORD }} | vncpasswd -f > ~{{ VNC_USER }}/.vnc/passwd"
+  command: "echo -n {{ VNC_PASSWORD }} | vncpasswd -f > ~{{ VNC_USER }}/.vnc/passwd"
   become: yes
   become_user: "{{ VNC_USER }}"
-  when: (vnc_passwd_file.exists == False) or (vncpasswd_changed.rc == 1)
   notify: restart vncserver
   tags:
     - tigervnc-server
 
 - name: enable vncserver service
   service:
-    name: vncserver
+    name: "vncserver@{{ VNC_DISPLAY }}.service"
     enabled: yes
   tags:
     - tigervnc-server
