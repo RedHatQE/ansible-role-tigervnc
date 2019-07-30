@@ -46,6 +46,16 @@
   tags:
     - tigervnc-server
 
+- name: replace USER in a systemd file
+  replace:
+    path: /usr/lib/systemd/system/vncserver@.service
+    regexp: '<USER>'
+    replace: "{{ VNC_USER }}"
+
+- name: systemd reloading
+  systemd:
+    daemon_reload: yes
+
 - name: enable vncserver service
   service:
     name: "vncserver@{{ VNC_DISPLAY }}.service"
