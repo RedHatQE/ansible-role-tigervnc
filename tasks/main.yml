@@ -19,9 +19,18 @@
   tags:
     - tigervnc-server
 
+- name: create a directory .vnc
+  file:
+    path: "~{{ VNC_USER }}/.vnc"
+    owner: "{{ VNC_USER }}"
+    group: "{{ VNC_USER }}"
+    state: directory
+  tags:
+    - tigervnc-server
+
 - name: prepare a file .vnc/passwd
   file:
-    path: ".vnc/passwd"
+    path: "~{{ VNC_USER }}/.vnc/passwd"
     owner: "{{ VNC_USER }}"
     group: "{{ VNC_USER }}"
     mode: 0600
