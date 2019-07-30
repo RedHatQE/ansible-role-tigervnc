@@ -2,7 +2,7 @@
 ---
 - name: restart vncserver
   service:
-    name: "vncserver@{{ VNC_DISPLAY }}.service"
+    name: "vncserver@:{{ VNC_DISPLAY }}.service"
     state: restarted
   tags:
     - tigervnc-server

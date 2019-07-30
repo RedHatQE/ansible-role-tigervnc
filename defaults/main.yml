@@ -3,4 +3,5 @@
 VNC_SERVER_ARGS: "-geometry 800x600"
 VNC_DISPLAY: 2
 VNC_USER: root
+VNC_USER_HOME: /root/
 VNC_PASSWORD: password

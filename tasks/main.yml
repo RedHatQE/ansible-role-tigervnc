@@ -1,3 +1,4 @@
+---
 # tasks file for tigervnc-server
 - name: Install TigerVNC-server package
   package:
@@ -18,47 +19,93 @@
   tags:
     - tigervnc-server
 
-- name: create a directory .vnc
+- name: create ~/.vnc
   file:
-    path: "~{{ VNC_USER }}/.vnc"
+    path: "~/.vnc"
     owner: "{{ VNC_USER }}"
     group: "{{ VNC_USER }}"
+    mode: 0777
     state: directory
-  tags:
-    - tigervnc-server
-
-- name: prepare a file .vnc/passwd
-  file:
-    path: "~{{ VNC_USER }}/.vnc/passwd"
-    owner: "{{ VNC_USER }}"
-    group: "{{ VNC_USER }}"
-    mode: 0600
-    state: touch
-  notify: restart vncserver
-  tags:
-    - tigervnc-server
-
-- name: set password for vnc user
-  command: "echo -n {{ VNC_PASSWORD }} | vncpasswd -f > ~{{ VNC_USER }}/.vnc/passwd"
-  become: yes
+  become: true
   become_user: "{{ VNC_USER }}"
   notify: restart vncserver
   tags:
     - tigervnc-server
 
-- name: replace USER in a systemd file
-  replace:
-    path: /usr/lib/systemd/system/vncserver@.service
-    regexp: '<USER>'
-    replace: "{{ VNC_USER }}"
+- name: check for vncpassword
+  stat:
+    path: "~/.vnc/passwd"
+  register: vnc_passwd_file
+  become: true
+  become_user: "{{ VNC_USER }}"
+  tags:
+    - tigervnc-server
 
-- name: systemd reloading
-  systemd:
-    daemon_reload: yes
+- name: prepare a file .vnc/passwd
+  file:
+    path: "~/.vnc/passwd"
+    owner: "{{ VNC_USER }}"
+    group: "{{ VNC_USER }}"
+    mode: 0600
+    state: touch
+  become: true
+  become_user: "{{ VNC_USER }}"
+  notify: restart vncserver
+  tags:
+    - tigervnc-server
+
+- name: determine if vnc password changes
+  shell: "[[ $(echo -n {{ VNC_PASSWORD }} | vncpasswd -f | md5sum | cut -d ' ' -f1) == $(md5sum ~/.vnc/passwd | cut -d ' ' -f1) ]]"
+  register: vncpasswd_changed
+  when: vnc_passwd_file.stat.exists == True
+  become: true
+  become_user: "{{ VNC_USER }}"
+  tags:
+    - tigervnc-server
+
+- name: set password for vnc user
+  shell: "echo -n {{ VNC_PASSWORD }} | vncpasswd -f > ~/.vnc/passwd"
+  become: yes
+  become_user: "{{ VNC_USER }}"
+  when: (vnc_passwd_file.stat.exists == False) or (vncpasswd_changed.rc == 1)
+  notify: restart vncserver
+  tags:
+    - tigervnc-server
+
+- name: copy vnc server systemd file
+  template:
+    src: templates/vncserver.service.j2
+    dest: "/etc/systemd/system/vncserver@.service"
+    owner: root
+    group: root
+    mode: 0644
+  notify: restart vncserver
+  register: vncserver_systemd_file
+  tags:
+    - tigervnc-server
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=1626255
+- name: create selinux policy vncserver
+  copy:
+    src: systemd-tigervnc.te
+    dest: /tmp/systemd-tigervnc.te
+  when: ansible_selinux.mode == "enforcing"
+  tags:
+    - tigervnc-server
+
+- name: add selinux policy for vncserver
+  shell: |
+    checkmodule -M -m -o /tmp/systemd-tigervnc.mod /tmp/systemd-tigervnc.te
+    semodule_package -o /tmp/systemd-tigervnc.pp -m /tmp/systemd-tigervnc.mod
+    semodule -X 300 -i /tmp/systemd-tigervnc.pp
+  when: ansible_selinux.mode == "enforcing"
+  tags:
+    - tigervnc-server
 
 - name: enable vncserver service
   service:
-    name: "vncserver@{{ VNC_DISPLAY }}.service"
+    name: "vncserver@:{{ VNC_DISPLAY }}.service"
     enabled: yes
+    daemon_reload: yes
   tags:
     - tigervnc-server
